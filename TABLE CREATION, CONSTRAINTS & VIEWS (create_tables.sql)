@@ -1,0 +1,131 @@
+-- 1. Base Tables (No Foreign Keys)
+CREATE TABLE PATIENT (
+    Patient_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Full_Name VARCHAR(100) NOT NULL,
+    Date_of_Birth DATE,
+    Gender VARCHAR(20),
+    Phone_number VARCHAR(20),
+    Address VARCHAR(100),
+    Emergency_Contact VARCHAR(20),
+    Date_Registered DATE
+);
+
+CREATE TABLE Health_Workers (
+    Health_Worker_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Full_Name VARCHAR(100),
+    Specialization VARCHAR(25), -- Fixed typo: Specailization -> Specialization
+    Role VARCHAR(25),
+    Salary INT
+);
+
+CREATE TABLE INVENTORY (
+    Inventory_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Item_Name VARCHAR(30),
+    Unit_Cost DECIMAL(5,2),
+    Quantity_Available INT -- Fixed typo: Quality_Available -> Quantity_Available
+);
+
+CREATE TABLE users (
+    User_ID INT PRIMARY KEY, -- Removed AUTO_INCREMENT to support your manual 9-digit custom IDs
+    Username VARCHAR(100) NOT NULL UNIQUE,
+    Passwords VARCHAR(100) NOT NULL,
+    Role ENUM('Admin', 'Doctor', 'Receptionist') NOT NULL
+);
+
+-- 2. First-Tier Dependent Tables (References Base Tables)
+CREATE TABLE APPOINTMENT (
+    Appointment_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Appointment_Date DATETIME,
+    Patient_ID INT,
+    Health_Worker_ID INT,
+    FOREIGN KEY (Patient_ID) REFERENCES PATIENT(Patient_ID),
+    FOREIGN KEY (Health_Worker_ID) REFERENCES Health_Workers(Health_Worker_ID)
+);
+
+CREATE TABLE PAYMENT (
+    Payment_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Payment_Method VARCHAR(25),
+    Amount DECIMAL(5,2),
+    Payment_date DATETIME,
+    Patient_ID INT,
+    FOREIGN KEY (Patient_ID) REFERENCES PATIENT(Patient_ID)
+);
+
+CREATE TABLE VISITATION (
+    Visitation_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Visit_Date DATETIME,
+    Reason VARCHAR(200),
+    Patient_ID INT,
+    FOREIGN KEY (Patient_ID) REFERENCES PATIENT(Patient_ID)
+);
+
+CREATE TABLE TREATMENT (
+    Treatment_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Treatment_Name VARCHAR(20),
+    Dosage_info VARCHAR(100),
+    Cost DECIMAL(5,2),
+    Patient_ID INT,
+    FOREIGN KEY (Patient_ID) REFERENCES PATIENT(Patient_ID)
+);
+
+-- 3. Second-Tier Dependent Tables (References First-Tier Tables)
+CREATE TABLE DIAGNOSIS (
+    Diagnosis_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Diagnosis_Name VARCHAR(25),
+    Description VARCHAR(300),
+    Visitation_ID INT,
+    Patient_ID INT,
+    FOREIGN KEY (Patient_ID) REFERENCES PATIENT(Patient_ID),
+    FOREIGN KEY (Visitation_ID) REFERENCES VISITATION(Visitation_ID)
+);
+
+CREATE TABLE CARE_PLAN (
+    Care_Plan_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Treatment_ID INT,
+    Diagnosis_ID INT,
+    Start_Date DATETIME,
+    End_Date DATETIME,
+    Note VARCHAR(250),
+    FOREIGN KEY (Treatment_ID) REFERENCES TREATMENT(Treatment_ID),
+    FOREIGN KEY (Diagnosis_ID) REFERENCES DIAGNOSIS(Diagnosis_ID)
+);
+
+CREATE TABLE APPT_PROCEDURE (
+    Appt_Procedure_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Appointment_ID INT,
+    Treatment_ID INT,
+    Dosage VARCHAR(250),
+    Duration VARCHAR(25),
+    FOREIGN KEY (Appointment_ID) REFERENCES APPOINTMENT(Appointment_ID),
+    FOREIGN KEY (Treatment_ID) REFERENCES TREATMENT(Treatment_ID)
+);
+
+CREATE TABLE USAGES (
+    Usage_ID INT PRIMARY KEY AUTO_INCREMENT,
+    Inventory_ID INT,
+    Treatment_ID INT,
+    Quantity_Used INT,
+    Usage_Date DATETIME,
+    FOREIGN KEY (Treatment_ID) REFERENCES TREATMENT(Treatment_ID),
+    FOREIGN KEY (Inventory_ID) REFERENCES INVENTORY(Inventory_ID)
+);
+
+-- 4. Views
+CREATE OR REPLACE VIEW vw_patient_records AS
+SELECT
+    p.Patient_ID,
+    p.Full_Name,
+    p.Gender,
+    p.Date_of_Birth,
+    v.Visit_Date,
+    v.Reason,
+    d.Diagnosis_Name,
+    d.Description,
+    t.Dosage_Info,
+    h.Full_Name AS doctor_name
+FROM PATIENT p
+LEFT JOIN APPOINTMENT a ON p.Patient_ID = a.Patient_ID
+LEFT JOIN Health_Workers h ON a.Health_Worker_ID = h.Health_Worker_ID
+LEFT JOIN VISITATION v ON p.Patient_ID = v.Patient_ID
+LEFT JOIN DIAGNOSIS d ON p.Patient_ID = d.Patient_ID
+LEFT JOIN TREATMENT t ON p.Patient_ID = t.Patient_ID;
